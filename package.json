@@ -8,6 +8,7 @@
   "scripts": {
     "postinstall": "npm --prefix server install --include=dev",
     "start:dev": "npm --prefix server run start:dev",
+    "start:prod": "npm --prefix server run start:prod",
     "start": "npm --prefix server run start:prod",
     "build": "npm --prefix server install --include=dev && npm --prefix server run build",
     "test": "npm --prefix server run test"
