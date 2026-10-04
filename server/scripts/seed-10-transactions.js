@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 async function seed() {
-  const uri = process.env.MONGODB_URI || 'mongodb+srv://daoanhtien232001_db_user:Tien230901@cluster0.1q69m5e.mongodb.net/convert_money?appName=Cluster0';
+  const uri = process.env.MONGODB_URI || 'mongodb+srv://daoanhtien232001_db_user:Tien230901@cluster0.1q69m5e.mongodb.net/?appName=Cluster0';
   await mongoose.connect(uri);
   console.log('Connected to MongoDB Atlas');
 
@@ -9,7 +9,6 @@ async function seed() {
   const usersCol = db.collection('users');
   const walletsCol = db.collection('wallets');
   const txCol = db.collection('transactions');
-  const recentTxCol = db.collection('recent_transactions');
 
   const users = await usersCol.find({}).toArray();
   if (users.length === 0) {
@@ -397,52 +396,6 @@ async function seed() {
     await txCol.insertMany(docsToInsert);
     console.log(`Successfully seeded ${docsToInsert.length} transactions for user ${user.email || user._id}.`);
 
-    // 4. Also seed recent transfer contacts
-    await recentTxCol.deleteMany({ userId: user._id });
-    const recentContacts = [
-      {
-        userId: user._id,
-        bankCode: 'KAKAO',
-        name: '카카오뱅크',
-        imageUrl: 'assets/images/bank/bank_kakao.png',
-        accountNumber: '3333-08-204910',
-        accountName: '이영희',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        userId: user._id,
-        bankCode: 'SHINHAN',
-        name: '신한은행',
-        imageUrl: 'assets/images/bank/bank_shinhan.png',
-        accountNumber: '562-019-482019',
-        accountName: 'SK텔레콤(주)',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        userId: user._id,
-        bankCode: 'WOORI',
-        name: '우리은행',
-        imageUrl: 'assets/images/bank/bank_woori.png',
-        accountNumber: '1002-841-294012',
-        accountName: '관리사무소',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        userId: user._id,
-        bankCode: 'KAKAO',
-        name: '카카오뱅크',
-        imageUrl: 'assets/images/bank/bank_kakao.png',
-        accountNumber: '3333-01-948123',
-        accountName: '김민수',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ];
-    await recentTxCol.insertMany(recentContacts);
-    console.log(`Seeded ${recentContacts.length} recent transfer contacts.`);
   }
 
   console.log('\nAll seeding completed successfully!');

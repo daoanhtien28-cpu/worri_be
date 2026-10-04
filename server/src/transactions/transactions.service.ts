@@ -45,39 +45,36 @@ export class TransactionsService {
       filter.isDeposit = false;
     }
 
-    // 2. Lọc theo thời gian (1M, 3M, 6M hoặc startDate/endDate)
-    let startFilterDate: Date | null = null;
-    let endFilterDate: Date | null = null;
+    // 2. Lọc theo thời gian thực tế của giao dịch (transferTime: YYYY.MM.DD)
+    let startFilterTime: string | null = null;
+    let endFilterTime: string | null = null;
 
-    if (query.period) {
-      const now = new Date();
-      endFilterDate = now;
-      if (query.period === '1M') {
-        startFilterDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      } else if (query.period === '3M') {
-        startFilterDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-      } else if (query.period === '6M') {
-        startFilterDate = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
-      }
-    } else if (query.startDate || query.endDate) {
+    if (query.startDate || query.endDate) {
+      // Ưu tiên ngày do người dùng chỉ định trực tiếp (직접입력)
       if (query.startDate) {
-        startFilterDate = new Date(query.startDate.replace(/\./g, '-'));
+        startFilterTime = this.normalizeDateStr(query.startDate);
       }
       if (query.endDate) {
-        const d = new Date(query.endDate.replace(/\./g, '-'));
-        d.setHours(23, 59, 59, 999);
-        endFilterDate = d;
+        endFilterTime = this.normalizeDateStr(query.endDate);
       }
+    } else if (
+      query.period &&
+      query.period !== 'ALL' &&
+      query.period !== 'CUSTOM'
+    ) {
+      // Lọc theo mốc thời gian nhanh (1M, 3M, 6M, 1Y)
+      startFilterTime = this.getPeriodStartDate(query.period);
     }
 
-    if (startFilterDate || endFilterDate) {
-      filter.createdAt = {};
-      if (startFilterDate) {
-        filter.createdAt.$gte = startFilterDate;
+    if (startFilterTime || endFilterTime) {
+      const timeFilter: Record<string, string> = {};
+      if (startFilterTime) {
+        timeFilter.$gte = startFilterTime;
       }
-      if (endFilterDate) {
-        filter.createdAt.$lte = endFilterDate;
+      if (endFilterTime) {
+        timeFilter.$lte = endFilterTime;
       }
+      filter.transferTime = timeFilter;
     }
 
     // 3. Tìm kiếm từ khóa (예금주명 / 메모)
@@ -124,14 +121,6 @@ export class TransactionsService {
       transferTimeDetail: sortDirection,
       createdAt: sortDirection,
     };
-
-    // Tự động seed dữ liệu mẫu nếu user chưa có giao dịch nào
-    // const totalExisting = await this.transactionsRepo.count({
-    //   userId: new Types.ObjectId(userId),
-    // });
-    // if (totalExisting === 0) {
-    //   await this.seedInitialTransactionsForUser(userId);
-    // }
 
     const [items, total] = await Promise.all([
       this.transactionsRepo.findWithPagination(filter, sort, skip, limit),
@@ -205,14 +194,17 @@ export class TransactionsService {
       } catch (_) { }
     }
 
-    // Tạo mã giao dịch & thời gian
+    // Tạo mã giao dịch & thời gian theo giờ chuẩn KST (UTC+9)
     const now = new Date();
-    const dateStr =
-      dto.transferTime ||
-      `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
-    const timeStr =
-      dto.transferTimeDetail ||
-      `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+    const kstTime = now.getTime() + (9 * 60 + now.getTimezoneOffset()) * 60 * 1000;
+    const kstDate = new Date(kstTime);
+    const defaultDateStr = `${kstDate.getFullYear()}.${String(kstDate.getMonth() + 1).padStart(2, '0')}.${String(kstDate.getDate()).padStart(2, '0')}`;
+    const defaultTimeStr = `${String(kstDate.getHours()).padStart(2, '0')}:${String(kstDate.getMinutes()).padStart(2, '0')}:${String(kstDate.getSeconds()).padStart(2, '0')}`;
+
+    const dateStr = dto.transferTime
+      ? (this.normalizeDateStr(dto.transferTime) || defaultDateStr)
+      : defaultDateStr;
+    const timeStr = dto.transferTimeDetail || defaultTimeStr;
     const transferNumber = `1128OTT${Date.now().toString().slice(-9)}`;
 
     return this.transactionsRepo.save({
@@ -324,6 +316,11 @@ export class TransactionsService {
       } catch (_) { }
     }
 
+    // Chuẩn hóa định dạng ngày nếu người dùng chỉnh sửa transferTime
+    if (dto.transferTime) {
+      dto.transferTime = this.normalizeDateStr(dto.transferTime) || dto.transferTime;
+    }
+
     // 3. Cập nhật tất cả thông tin vào database
     const updated = await this.transactionsRepo.update(id, dto);
     if (!updated) {
@@ -342,109 +339,45 @@ export class TransactionsService {
   }
 
   /**
-   * Seed dữ liệu mẫu thực tế cho user mới.
+   * Chuẩn hóa chuỗi ngày thành định dạng YYYY.MM.DD đồng nhất.
    */
-  private async seedInitialTransactionsForUser(userId: string) {
-    const wallet = await this.walletsService.getMyWallet(userId);
-    const initialSamples: Partial<TransactionDocument>[] = [
-      {
-        userId: new Types.ObjectId(userId),
-        walletId: new Types.ObjectId(wallet.id),
-        transferNumber: '1128OTT260916001',
-        transferChannel: 'Sh 수협',
-        transferTypeTag: '체크',
-        title: '자연애마트',
-        content: '식료품 구매',
-        isDeposit: false,
-        currency: 'KRW',
-        transferAmount: 9470,
-        fee: 0,
-        balanceAfter: 2686,
-        totalWithdrawalAmount: 2686,
-        status: TransactionStatus.SUCCESS,
-        paymentBank: {
-          bankCode: wallet.linkedBankCode || 'SH',
-          name: wallet.linkedBankName || '수협',
-          imageUrl: wallet.imageUrl || 'assets/images/bank/bank_suhyup.png',
-          accountNumber: wallet.accountNumber,
-          accountName: wallet.ownerName,
-        },
-        beneficiaryBank: {
-          bankCode: 'KB',
-          name: '국민은행',
-          imageUrl: 'assets/images/bank/bank_kb.png',
-          accountNumber: '128-910734-43507',
-          accountName: '자연애마트',
-        },
-        transferTime: '2026.09.16',
-        transferTimeDetail: '18:08:45',
-      },
-      {
-        userId: new Types.ObjectId(userId),
-        walletId: new Types.ObjectId(wallet.id),
-        transferNumber: '1128OTT260916002',
-        transferChannel: 'Sh 수협',
-        transferTypeTag: '체크',
-        title: 'GS25 편의점',
-        content: '음료수',
-        isDeposit: false,
-        currency: 'KRW',
-        transferAmount: 4500,
-        fee: 0,
-        balanceAfter: 12156,
-        totalWithdrawalAmount: 12156,
-        status: TransactionStatus.SUCCESS,
-        paymentBank: {
-          bankCode: wallet.linkedBankCode || 'SH',
-          name: wallet.linkedBankName || '수협',
-          imageUrl: wallet.imageUrl || 'assets/images/bank/bank_suhyup.png',
-          accountNumber: wallet.accountNumber,
-          accountName: wallet.ownerName,
-        },
-        beneficiaryBank: {
-          bankCode: 'SHINHAN',
-          name: '신한은행',
-          imageUrl: 'assets/images/bank/bank_shinhan.png',
-          accountNumber: '110-234-567890',
-          accountName: 'GS25 편의점',
-        },
-        transferTime: '2026.09.16',
-        transferTimeDetail: '12:30:10',
-      },
-      {
-        userId: new Types.ObjectId(userId),
-        walletId: new Types.ObjectId(wallet.id),
-        transferNumber: '1128OTT260915001',
-        transferChannel: 'Sh 수협',
-        transferTypeTag: '입금',
-        title: '김환',
-        content: '월급 입금',
-        isDeposit: true,
-        currency: 'KRW',
-        transferAmount: 1540000,
-        fee: 0,
-        balanceAfter: 16656,
-        totalWithdrawalAmount: 16656,
-        status: TransactionStatus.SUCCESS,
-        paymentBank: {
-          bankCode: 'KB',
-          name: '국민은행',
-          imageUrl: 'assets/images/bank/bank_kb.png',
-          accountNumber: '9876-543-210',
-          accountName: '김환',
-        },
-        beneficiaryBank: {
-          bankCode: wallet.linkedBankCode || 'SH',
-          name: wallet.linkedBankName || '수협',
-          imageUrl: wallet.imageUrl || 'assets/images/bank/bank_suhyup.png',
-          accountNumber: wallet.accountNumber,
-          accountName: wallet.ownerName,
-        },
-        transferTime: '2026.09.15',
-        transferTimeDetail: '09:00:00',
-      },
-    ];
-
-    await this.transactionsRepo.insertMany(initialSamples as any);
+  private normalizeDateStr(val?: string): string | null {
+    if (!val) return null;
+    const cleaned = val.trim().replace(/[-/]/g, '.');
+    const parts = cleaned.split('.');
+    if (parts.length === 3) {
+      const y = parts[0].padStart(4, '0');
+      const m = parts[1].padStart(2, '0');
+      const d = parts[2].padStart(2, '0');
+      return `${y}.${m}.${d}`;
+    }
+    return cleaned;
   }
+
+  /**
+   * Tính ngày bắt đầu theo mốc thời gian (KST - Asia/Seoul UTC+9).
+   */
+  private getPeriodStartDate(period: string): string | null {
+    const now = new Date();
+    const kstTime = now.getTime() + (9 * 60 + now.getTimezoneOffset()) * 60 * 1000;
+    const kstDate = new Date(kstTime);
+
+    if (period === '1M') {
+      kstDate.setMonth(kstDate.getMonth() - 1);
+    } else if (period === '3M') {
+      kstDate.setMonth(kstDate.getMonth() - 3);
+    } else if (period === '6M') {
+      kstDate.setMonth(kstDate.getMonth() - 6);
+    } else if (period === '1Y') {
+      kstDate.setFullYear(kstDate.getFullYear() - 1);
+    } else {
+      return null;
+    }
+
+    const y = kstDate.getFullYear();
+    const m = String(kstDate.getMonth() + 1).padStart(2, '0');
+    const d = String(kstDate.getDate()).padStart(2, '0');
+    return `${y}.${m}.${d}`;
+  }
+
 }

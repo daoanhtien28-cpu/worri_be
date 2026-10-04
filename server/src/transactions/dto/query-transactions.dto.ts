@@ -40,7 +40,7 @@ export class QueryTransactionsDto {
 
   @ApiPropertyOptional({
     example: '1M',
-    description: 'Khoảng thời gian nhanh: 1M (1개월), 3M (3개월), 6M (6개월)',
+    description: 'Khoảng thời gian nhanh: 1M (1개월), 3M (3개월), 6M (6개월), 1Y (1년)',
   })
   @IsOptional()
   @IsString()
