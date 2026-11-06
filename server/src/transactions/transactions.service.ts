@@ -182,7 +182,7 @@ export class TransactionsService {
 
     // Xác định thông tin ngân hàng nhận
     let receiverBankName = dto.receiverBankName || '국민은행';
-    let receiverImageUrl = 'assets/images/bank/bank_kb.png';
+    let receiverImageUrl = 'assets/images/bank/kb_kookmin_bank.png';
     let receiverBankCode = dto.receiverBankCode || 'KB';
 
     if (dto.receiverBankCode) {
@@ -224,8 +224,8 @@ export class TransactionsService {
       status: (dto.status as TransactionStatus) || TransactionStatus.SUCCESS,
       paymentBank: dto.paymentBank || {
         bankCode: wallet.linkedBankCode || 'SH',
-        name: wallet.linkedBankName || '수협',
-        imageUrl: wallet.imageUrl || 'assets/images/bank/bank_suhyup.png',
+        name: wallet.linkedBankName || '수협은행',
+        imageUrl: wallet.imageUrl || 'assets/images/bank/suhyup_bank.png',
         accountNumber: wallet.accountNumber,
         accountName: wallet.ownerName,
       },

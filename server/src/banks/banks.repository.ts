@@ -49,4 +49,9 @@ export class BanksRepository {
       .findByIdAndUpdate(id, updateData, { new: true })
       .exec();
   }
+
+  async deleteNotInCodes(validCodes: string[]): Promise<any> {
+    const uppercaseCodes = validCodes.map((c) => c.toUpperCase());
+    return this.bankModel.deleteMany({ code: { $nin: uppercaseCodes } }).exec();
+  }
 }

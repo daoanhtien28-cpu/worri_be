@@ -44,7 +44,7 @@ export class RecentTransactionsController {
           id: '66f2b45a...',
           bankCode: 'KB',
           name: '국민은행',
-          imageUrl: 'assets/images/bank/bank_kb.png',
+          imageUrl: 'assets/images/bank/kb_kookmin_bank.png',
           accountNumber: '9876 543 210',
           accountName: '자연애마트',
           createdAt: '2026-09-24T10:00:00.000Z',

@@ -19,7 +19,7 @@ export class CreateRecentTransactionDto {
   name: string;
 
   @ApiProperty({
-    example: 'assets/images/bank/bank_kb.png',
+    example: 'assets/images/bank/kb_kookmin_bank.png',
     description: 'Đường dẫn ảnh/logo ngân hàng',
   })
   @IsNotEmpty({ message: 'Đường dẫn ảnh (imageUrl) không được để trống' })

@@ -108,7 +108,7 @@ export class WalletsService {
       linkedBankCode: dto.linkedBankCode || 'WOORI',
       linkedBankName: dto.linkedBankName || '우리은행',
       linkedBankAccount: dto.linkedBankAccount || '',
-      imageUrl: dto.imageUrl || 'assets/images/bank/bank_woori.png',
+      imageUrl: dto.imageUrl || 'assets/images/bank/woori_bank.png',
     });
   }
 

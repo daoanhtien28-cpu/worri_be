@@ -178,7 +178,7 @@ export class RecentTransactionsService {
     }
 
     if (!resolvedName) resolvedName = '국민은행';
-    if (!resolvedImage) resolvedImage = 'assets/images/bank/bank_kb.png';
+    if (!resolvedImage) resolvedImage = 'assets/images/bank/kb_kookmin_bank.png';
 
     return {
       bankCode: resolvedCode,
